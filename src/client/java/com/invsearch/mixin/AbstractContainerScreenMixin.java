@@ -201,8 +201,17 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                     return;
                 }
 
-                // Enter does not evaluate the math expression anymore.
-                // The user prefers reading the greyed out suggestion instead of replacing the text box content.
+                String val = this.searchBox.getValue();
+                if (val.startsWith("=")) {
+                    Optional<Double> result = CalculatorEngine.evaluate(val.substring(1));
+                    if (result.isPresent()) {
+                        this.searchBox.setValue(FORMATTER.format(result.get()));
+                        this.currentSuggestion = "";
+                        if (ConfigManager.getConfig().rememberLastQuery) {
+                            InventorySearch.draftText = this.searchBox.getValue();
+                        }
+                    }
+                }
                 cir.setReturnValue(true);
                 return;
             } else if (keyCode == 256) {
@@ -264,28 +273,13 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
         }
 
-        // Manual ghost-suggestion draw, since MultiLineEditBox has no native
-        // suggestion support. If there's room for a 2nd+ line below the
-        // typed content, draw the "-> result" there instead of inline, so it
-        // doesn't overlap whatever's being typed. Falls back to inline at
-        // the end of the last line if there's no room.
+        // Draw inline next to the text.
         if (!this.currentSuggestion.isEmpty()) {
             String text = this.searchBox.getValue();
+            int lastLineLength = text.isEmpty() ? 0 : text.substring(text.lastIndexOf('\n') + 1).length();
             int usedLines = (int) text.chars().filter(c -> c == '\n').count() + 1;
-            int totalLines = Math.max(1, config.barLines);
-            int suggestionX;
-            int suggestionY;
-
-            if (usedLines < totalLines) {
-                // Room below the typed text -> next line.
-                suggestionX = this.searchBox.getX() + 2;
-                suggestionY = this.searchBox.getY() + (usedLines * ModConfig.LINE_HEIGHT);
-            } else {
-                // No room -> fall back to inline at the end of the last line.
-                int lastLineLength = text.isEmpty() ? 0 : text.substring(text.lastIndexOf('\n') + 1).length();
-                suggestionX = this.searchBox.getX() + 2 + this.font.width(text.substring(Math.max(0, text.length() - lastLineLength)));
-                suggestionY = this.searchBox.getY() + ((usedLines - 1) * ModConfig.LINE_HEIGHT) + 2;
-            }
+            int suggestionX = this.searchBox.getX() + 2 + this.font.width(text.substring(Math.max(0, text.length() - lastLineLength)));
+            int suggestionY = this.searchBox.getY() + ((usedLines - 1) * ModConfig.LINE_HEIGHT) + 2;
 
             graphics.fill(suggestionX, suggestionY, suggestionX + this.font.width(this.currentSuggestion) + 2, suggestionY + ModConfig.LINE_HEIGHT, 0x80000000);
             graphics.centeredText(this.font, this.currentSuggestion,
