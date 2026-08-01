@@ -234,7 +234,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
         } else if (!this.currentSuggestion.isEmpty()) {
             // Draw calculator preview right below the search box
-            graphics.drawString(this.font, this.currentSuggestion, this.searchBox.getX(), this.searchBox.getY() + this.searchBox.getHeight() + 2, 0xAAAAAA, true);
+            graphics.text(this.font, this.currentSuggestion, this.searchBox.getX(), this.searchBox.getY() + this.searchBox.getHeight() + 2, 0xAAAAAA, true);
         }
 
         // Draw a small grip square in the bottom-right corner so the resize
