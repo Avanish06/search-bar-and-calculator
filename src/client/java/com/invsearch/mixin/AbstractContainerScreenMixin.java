@@ -106,10 +106,21 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                     }
                 }
                 cir.setReturnValue(true);
+                return;
             } else if (keyCode == 256) { // ESCAPE
                 this.searchBox.setFocused(false);
                 cir.setReturnValue(true);
+                return;
             }
+
+            // Any other key (letters, backspace, arrows, ctrl+c/v, etc.) while the box is
+            // focused: let the EditBox itself handle it, then ALWAYS consume the event here.
+            // This is required because AbstractContainerScreen's own keyPressed checks the
+            // vanilla "open/close inventory" keybind (default E) before it ever looks at
+            // whether a widget has focus - without this, typing "e" closes the screen instead
+            // of reaching the text field.
+            this.searchBox.keyPressed(event);
+            cir.setReturnValue(true);
         }
     }
 
@@ -126,7 +137,20 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             return;
         }
 
-        if (!InventorySearch.matches(slot.getItem(), query)) {
+        if (InventorySearch.matches(slot.getItem(), query)) {
+            // Draw a 1px green border around the matching slot's icon area.
+            // Four thin fills (top/bottom/left/right) rather than a single hollow-rect
+            // call, since GuiGraphicsExtractor only exposes solid fill() here.
+            int color = config.highlightColor;
+            int x0 = slot.x - 1;
+            int y0 = slot.y - 1;
+            int x1 = slot.x + 17;
+            int y1 = slot.y + 17;
+            graphics.fill(x0, y0, x1, y0 + 1, color);       // top
+            graphics.fill(x0, y1 - 1, x1, y1, color);        // bottom
+            graphics.fill(x0, y0, x0 + 1, y1, color);        // left
+            graphics.fill(x1 - 1, y0, x1, y1, color);        // right
+        } else {
             // Draw a dark overlay over the slot using fill
             int opacity = Math.max(0, Math.min(255, config.dimOpacity));
             int color = (opacity << 24) | 0x000000;

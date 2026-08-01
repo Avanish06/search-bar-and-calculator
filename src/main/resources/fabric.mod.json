@@ -1,15 +1,18 @@
 {
 	"schemaVersion": 1,
-	"id": "invsearch",
+	"id": "searchandcalc",
 	"version": "1.0.0",
-	"name": "Inventory Search",
-	"description": "Adds a search box and item counter overlay to inventory screens.",
+	"name": "Search And Calc",
+	"description": "Inventory search bar and calculator",
 	"authors": [
-		"User"
+		"Me!"
 	],
-	"contact": {},
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
 	"license": "CC0-1.0",
-	"icon": "assets/invsearch/icon.png",
+	"icon": "assets/searchandcalc/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
