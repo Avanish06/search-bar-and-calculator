@@ -25,5 +25,7 @@ Typing an equals sign (`=`) at the start of the bar instantly transforms it into
 
 ### 🏝️ Hypixel Skyblock Compatibility
 When playing on heavily customized servers like Hypixel Skyblock, items often use vanilla placeholders (like a diamond sword for an Aspect of the End).
-- Use the command `/sac togglevanilla` in chat to toggle Vanilla ID matching on or off. 
 - When disabled, the mod completely ignores the meaningless vanilla item ID and perfectly filters based *only* on the custom Skyblock display name and lore.
+
+## Credits
+Inspired by the incredible search and inventory utilities from **NotEnoughUpdates (NEU)**! This mod brings those same beloved features (and a few more) into the modern Minecraft 1.21+ / Fabric ecosystem as a standalone client utility.

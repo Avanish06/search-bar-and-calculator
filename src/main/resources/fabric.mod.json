@@ -5,7 +5,8 @@
 	"name": "Search And Calc",
 	"description": "Inventory search bar and calculator",
 	"authors": [
-		"Me!"
+		"Me!",
+		"Inspired by NotEnoughUpdates (NEU)"
 	],
 	"contact": {
 		"homepage": "https://fabricmc.net/",
