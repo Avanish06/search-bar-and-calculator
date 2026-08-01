@@ -28,6 +28,7 @@ public class HudEditorScreen extends Screen {
     private int boxX;
     private int boxY;
     private int boxWidth;
+    private int boxHeight;
 
     public HudEditorScreen() {
         super(Component.literal("Search & Calc - HUD Editor"));
@@ -37,6 +38,7 @@ public class HudEditorScreen extends Screen {
     protected void init() {
         ModConfig config = ConfigManager.getConfig();
         this.boxWidth = config.barWidth > 0 ? config.barWidth : 120;
+        this.boxHeight = config.barLines > 0 ? config.barLines * 12 : 12;
         this.boxX = config.barX >= 0 ? config.barX : (this.width / 2 - this.boxWidth / 2);
         this.boxY = config.barY >= 0 ? config.barY : (this.height - 22);
     }
@@ -47,16 +49,16 @@ public class HudEditorScreen extends Screen {
         graphics.fill(0, 0, this.width, this.height, 0xC0101010);
 
         // Box preview + border.
-        graphics.fill(boxX, boxY, boxX + boxWidth, boxY + BOX_HEIGHT, 0xFF2B2B2B);
+        graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF2B2B2B);
         graphics.fill(boxX, boxY, boxX + boxWidth, boxY + 1, 0xFFFFFFFF);
-        graphics.fill(boxX, boxY + BOX_HEIGHT - 1, boxX + boxWidth, boxY + BOX_HEIGHT, 0xFFFFFFFF);
-        graphics.fill(boxX, boxY, boxX + 1, boxY + BOX_HEIGHT, 0xFFFFFFFF);
-        graphics.fill(boxX + boxWidth - 1, boxY, boxX + boxWidth, boxY + BOX_HEIGHT, 0xFFFFFFFF);
-        graphics.centeredText(this.font, "Search & Calc", boxX + boxWidth / 2, boxY + 2, 0xFFFFFF);
+        graphics.fill(boxX, boxY + boxHeight - 1, boxX + boxWidth, boxY + boxHeight, 0xFFFFFFFF);
+        graphics.fill(boxX, boxY, boxX + 1, boxY + boxHeight, 0xFFFFFFFF);
+        graphics.fill(boxX + boxWidth - 1, boxY, boxX + boxWidth, boxY + boxHeight, 0xFFFFFFFF);
+        graphics.centeredText(this.font, "Search & Calc", boxX + boxWidth / 2, boxY + boxHeight / 2 - 4, 0xFFFFFF);
 
         // Resize grip, bottom-right corner.
         int hx = boxX + boxWidth - HANDLE_SIZE / 2;
-        int hy = boxY + BOX_HEIGHT - HANDLE_SIZE / 2;
+        int hy = boxY + boxHeight - HANDLE_SIZE / 2;
         graphics.fill(hx, hy, hx + HANDLE_SIZE, hy + HANDLE_SIZE, 0xFFFFFFFF);
         graphics.fill(hx + 1, hy + 1, hx + HANDLE_SIZE - 1, hy + HANDLE_SIZE - 1, 0xFF55FF55);
 
@@ -69,14 +71,14 @@ public class HudEditorScreen extends Screen {
 
     private boolean isOverHandle(double mouseX, double mouseY) {
         int hx = boxX + boxWidth - HANDLE_SIZE / 2;
-        int hy = boxY + BOX_HEIGHT - HANDLE_SIZE / 2;
+        int hy = boxY + boxHeight - HANDLE_SIZE / 2;
         return mouseX >= hx - 3 && mouseX <= hx + HANDLE_SIZE + 3
             && mouseY >= hy - 3 && mouseY <= hy + HANDLE_SIZE + 3;
     }
 
     private boolean isOverBox(double mouseX, double mouseY) {
         return mouseX >= boxX && mouseX <= boxX + boxWidth
-            && mouseY >= boxY && mouseY <= boxY + BOX_HEIGHT;
+            && mouseY >= boxY && mouseY <= boxY + boxHeight;
     }
 
     @Override
@@ -101,6 +103,10 @@ public class HudEditorScreen extends Screen {
             return true;
         } else if (isResizing) {
             boxWidth = Math.max(30, (int) (event.x() - boxX));
+            boxHeight = Math.max(12, (int) (event.y() - boxY));
+            // Snap height to increments of 12px lines
+            int lines = Math.max(1, boxHeight / 12);
+            boxHeight = lines * 12;
             return true;
         }
         return super.mouseDragged(event, dragX, dragY);
@@ -131,6 +137,7 @@ public class HudEditorScreen extends Screen {
         config.barX = boxX;
         config.barY = boxY;
         config.barWidth = boxWidth;
+        config.barLines = Math.max(1, boxHeight / 12);
         ConfigManager.saveConfig();
     }
 }

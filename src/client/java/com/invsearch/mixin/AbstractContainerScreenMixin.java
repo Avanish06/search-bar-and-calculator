@@ -5,7 +5,7 @@ import com.invsearch.InventorySearch;
 import com.invsearch.config.ConfigManager;
 import com.invsearch.config.ModConfig;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -34,7 +34,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Shadow protected int imageHeight;
     @Shadow @Final protected T menu;
 
-    private EditBox searchBox;
+    private MultiLineEditBox searchBox;
+    private String currentSuggestion = "";
     private static final NumberFormat FORMATTER = NumberFormat.getInstance(Locale.US);
     private static final int HANDLE_SIZE = 6;
 
@@ -53,10 +54,14 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (!config.enabled) return;
 
         int boxWidth = config.barWidth > 0 ? config.barWidth : 120;
+        int boxHeight = config.barLines > 0 ? config.barLines * 12 : 12;
         int boxX = config.barX >= 0 ? config.barX : (this.width / 2 - boxWidth / 2);
         int boxY = config.barY >= 0 ? config.barY : (this.height - 22);
         
-        this.searchBox = new EditBox(this.font, boxX, boxY, boxWidth, 12, Component.literal("Search"));
+        this.searchBox = MultiLineEditBox.builder()
+                .setX(boxX)
+                .setY(boxY)
+                .build(this.font, boxWidth, boxHeight, Component.literal("Search"));
         
         if (config.rememberLastQuery) {
             this.searchBox.setValue(InventorySearch.currentQuery);
@@ -64,28 +69,28 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             InventorySearch.currentQuery = "";
         }
         
-        this.searchBox.setResponder(text -> {
+        this.searchBox.setValueListener(text -> {
             if (config.rememberLastQuery) {
                 InventorySearch.currentQuery = text;
             }
             if (text.startsWith("=")) {
                 Optional<Double> res = CalculatorEngine.evaluate(text.substring(1));
                 if (res.isPresent()) {
-                    this.searchBox.setSuggestion(" \u2192 " + FORMATTER.format(res.get()));
+                    this.currentSuggestion = " \u2192 " + FORMATTER.format(res.get());
                 } else {
-                    this.searchBox.setSuggestion(" \u2192 Error");
+                    this.currentSuggestion = " \u2192 Error";
                 }
             } else {
-                this.searchBox.setSuggestion("");
+                this.currentSuggestion = "";
             }
         });
         
         if (this.searchBox.getValue().startsWith("=")) {
             Optional<Double> res = CalculatorEngine.evaluate(this.searchBox.getValue().substring(1));
             if (res.isPresent()) {
-                this.searchBox.setSuggestion(" \u2192 " + FORMATTER.format(res.get()));
+                this.currentSuggestion = " \u2192 " + FORMATTER.format(res.get());
             } else {
-                this.searchBox.setSuggestion(" \u2192 Error");
+                this.currentSuggestion = " \u2192 Error";
             }
         }
         
@@ -135,12 +140,9 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             this.searchBox.setWidth(config.barWidth);
 
             // Vertical drag maps to line count. Each line is ~12px tall.
-            // NOTE: this only changes the stored config for now — the box is
-            // still a single-line EditBox, so it won't visually grow past one
-            // line until MultiLineEditBox is wired in. Width resize is fully
-            // functional today.
             int lineHeight = 12;
             config.barLines = Math.max(1, newHeight / lineHeight);
+            this.searchBox.setHeight(config.barLines * lineHeight);
 
             cir.setReturnValue(true);
         }
@@ -165,7 +167,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                     Optional<Double> result = CalculatorEngine.evaluate(val.substring(1));
                     if (result.isPresent()) {
                         this.searchBox.setValue(FORMATTER.format(result.get()));
-                        this.searchBox.setSuggestion("");
+                        this.currentSuggestion = "";
                         if (ConfigManager.getConfig().rememberLastQuery) {
                             InventorySearch.currentQuery = this.searchBox.getValue();
                         }
@@ -230,6 +232,9 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             
             String countText = "Total: " + FORMATTER.format(total);
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
+        } else if (!this.currentSuggestion.isEmpty()) {
+            // Draw calculator preview right below the search box
+            graphics.drawString(this.font, this.currentSuggestion, this.searchBox.getX(), this.searchBox.getY() + this.searchBox.getHeight() + 2, 0xAAAAAA, true);
         }
 
         // Draw a small grip square in the bottom-right corner so the resize
