@@ -273,13 +273,27 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
         }
 
-        // Draw inline next to the text.
+        // Manual ghost-suggestion draw. If there's room for a 2nd+ line below the
+        // typed content, draw the "-> result" there instead of inline, so it
+        // doesn't overlap whatever's being typed. Falls back to inline at
+        // the end of the last line if there's no room.
         if (!this.currentSuggestion.isEmpty()) {
             String text = this.searchBox.getValue();
-            int lastLineLength = text.isEmpty() ? 0 : text.substring(text.lastIndexOf('\n') + 1).length();
             int usedLines = (int) text.chars().filter(c -> c == '\n').count() + 1;
-            int suggestionX = this.searchBox.getX() + 2 + this.font.width(text.substring(Math.max(0, text.length() - lastLineLength)));
-            int suggestionY = this.searchBox.getY() + ((usedLines - 1) * ModConfig.LINE_HEIGHT) + 2;
+            int totalLines = Math.max(1, config.barLines);
+            int suggestionX;
+            int suggestionY;
+
+            if (usedLines < totalLines) {
+                // Room below the typed text -> next line.
+                suggestionX = this.searchBox.getX() + 2;
+                suggestionY = this.searchBox.getY() + (usedLines * ModConfig.LINE_HEIGHT);
+            } else {
+                // No room -> fall back to inline at the end of the last line.
+                int lastLineLength = text.isEmpty() ? 0 : text.substring(text.lastIndexOf('\n') + 1).length();
+                suggestionX = this.searchBox.getX() + 2 + this.font.width(text.substring(Math.max(0, text.length() - lastLineLength)));
+                suggestionY = this.searchBox.getY() + ((usedLines - 1) * ModConfig.LINE_HEIGHT) + 2;
+            }
 
             graphics.fill(suggestionX, suggestionY, suggestionX + this.font.width(this.currentSuggestion) + 2, suggestionY + ModConfig.LINE_HEIGHT, 0x80000000);
             graphics.centeredText(this.font, this.currentSuggestion,
