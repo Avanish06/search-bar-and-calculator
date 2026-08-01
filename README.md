@@ -1,31 +1,35 @@
-# Search & Calc
+# Fabric Inventory Search & Calculator Overlay Mod
 
-**Search & Calc** is a client-side Fabric mod for Minecraft (1.21 / 26.1.2) that completely overhauls how you interact with inventories. It seamlessly docks a powerful, multi-functional text bar to the bottom of any container screen (chests, shulker boxes, player inventory, etc.), acting as both an advanced item filter and an in-game calculator.
+This is a Minecraft Fabric client-side mod that adds a bottom-docked search bar and live calculator to all container screens.
 
-## What it does
+## Features
+1. **Search Mode**: Typing a plain query dims all slots whose item doesn't match, and shows a live running total of matching item counts. Supports `&&` logic and full Lore scanning.
+2. **Calculator Mode**: Typing `=` followed by a math expression evaluates it live and shows the result inline as ghost text, supporting `+ - * /`, decimals, and `k`/`m` shorthand.
 
-### 🔍 Advanced Inventory Searching
-By default, the bar acts as a search filter. Typing any text will instantly highlight items in the open inventory that match your query, while dimming everything else with a dark overlay. 
+## Requirements
+- **Minecraft**: 26.1.2
+- **Fabric Loader**: >=0.18.4
+- **Fabric API**: Required
+- **Java**: 25
+- **Mappings**: Mojang Official Mappings (Mojmaps)
 
-- **Smart Matching**: It searches through the item's display name, its underlying registry ID, and all custom lore/descriptions attached to it.
-- **Logical AND (`&&`)**: You can chain multiple search terms together. For example, typing `diamond && sword` will only highlight items that contain both words.
-- **Total Counts**: While searching, the bar displays a live, running total of how many matching items exist in the container.
+## Build Instructions
+This project uses Fabric Loom and Gradle. To build the mod in your development environment, open a terminal in this directory and run:
 
-### 🧮 Built-in Calculator Mode
-Typing an equals sign (`=`) at the start of the bar instantly transforms it into a live math calculator.
+```bash
+./gradlew build
+```
 
-- **Live Evaluation**: Type equations like `=5 * (12 + 4)` and the result will instantly preview as ghost text (`→ 80`) next to your cursor.
-- **Shorthand Support**: It natively understands `k` (thousands) and `m` (millions). Typing `=2.5m / 5k` evaluates exactly as you'd expect.
-- **Quick Submit**: Pressing `ENTER` will execute the calculation and replace the text in the box with the final result.
+## Testing in a Dev Environment
+To launch a Minecraft client with the mod loaded directly from the source code, run:
 
-### ⚙️ HUD Editor & Customization
-- **Drag-to-Move**: Hold `ALT`, click, and drag the search box to move it anywhere on your screen.
-- **Drag-to-Resize**: Hold `ALT` + `CTRL`, click, and drag left or right to dynamically resize the width of the box to fit long equations.
-- **Visual Clarity**: Matched items are highlighted with a sleek green border rather than just being left alone, making them pop out instantly.
+```bash
+./gradlew runClient
+```
 
-### 🏝️ Hypixel Skyblock Compatibility
-When playing on heavily customized servers like Hypixel Skyblock, items often use vanilla placeholders (like a diamond sword for an Aspect of the End).
-- When disabled, the mod completely ignores the meaningless vanilla item ID and perfectly filters based *only* on the custom Skyblock display name and lore.
-
-## Credits
-Inspired by the incredible search and inventory utilities from **NotEnoughUpdates (NEU)**! This mod brings those same beloved features (and a few more) into the modern Minecraft 1.21+ / Fabric ecosystem as a standalone client utility.
+## Configuration
+The mod generates a configuration file at `config/invsearch.json` with the following options:
+- `enabled`: (default: `true`) Master toggle for the mod.
+- `rememberLastQuery`: (default: `true`) Persist the last search string across screen opens for the session.
+- `includePlayerInventory`: (default: `true`) Whether matching/dimming applies to the player's own inventory slots within the same screen.
+- `dimOpacity`: (default: `153`) The opacity of the dark overlay on non-matching slots (0-255).
