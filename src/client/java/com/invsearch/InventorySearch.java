@@ -20,6 +20,10 @@ public final class InventorySearch {
     // Whatever's currently typed in the box, saved regardless of whether it's
     // been activated yet, so text survives closing/reopening any inventory.
     public static String draftText = "";
+    
+    // UI state shared with mixins
+    public static String currentSuggestion = "";
+    public static net.minecraft.client.gui.components.MultiLineEditBox currentSearchBox = null;
 
     public static boolean matches(ItemStack stack, String query) {
         if (stack == null || stack.isEmpty()) return false;

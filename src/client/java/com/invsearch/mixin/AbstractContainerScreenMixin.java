@@ -41,7 +41,6 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     // avoids that entirely at the cost of never getting single-line's native
     // ghost-suggestion support — which is why we draw it manually below anyway.
     private MultiLineEditBox searchBox;
-    private String currentSuggestion = "";
     private static final NumberFormat FORMATTER = NumberFormat.getInstance(Locale.US);
     private static final int HANDLE_SIZE = 6;
 
@@ -89,11 +88,11 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             }
             if (text.startsWith("=")) {
                 Optional<Double> res = CalculatorEngine.evaluate(text.substring(1));
-                this.currentSuggestion = res.isPresent()
+                InventorySearch.currentSuggestion = res.isPresent()
                     ? (" \u2192 " + FORMATTER.format(res.get()))
                     : " \u2192 Error";
             } else {
-                this.currentSuggestion = "";
+                InventorySearch.currentSuggestion = "";
                 // Search is intentionally NOT auto-applied here anymore.
                 // The user double-clicks the box to activate/refresh the
                 // highlighted search instead of it live-searching every
@@ -104,11 +103,12 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         String initial = this.searchBox.getValue();
         if (initial.startsWith("=")) {
             Optional<Double> res = CalculatorEngine.evaluate(initial.substring(1));
-            this.currentSuggestion = res.isPresent()
+            InventorySearch.currentSuggestion = res.isPresent()
                 ? (" \u2192 " + FORMATTER.format(res.get()))
                 : " \u2192 Error";
         }
 
+        InventorySearch.currentSearchBox = this.searchBox;
         this.addRenderableWidget(this.searchBox);
     }
 
@@ -203,14 +203,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
                 String val = this.searchBox.getValue();
                 if (val.startsWith("=")) {
-                    Optional<Double> result = CalculatorEngine.evaluate(val.substring(1));
-                    if (result.isPresent()) {
-                        this.searchBox.setValue(FORMATTER.format(result.get()));
-                        this.currentSuggestion = "";
-                        if (ConfigManager.getConfig().rememberLastQuery) {
-                            InventorySearch.draftText = this.searchBox.getValue();
-                        }
-                    }
+                    // They just want it as a live preview; pressing Enter shouldn't replace the text.
+                    this.searchBox.setFocused(false);
                 }
                 cir.setReturnValue(true);
                 return;
@@ -272,39 +266,5 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             String countText = "Total: " + FORMATTER.format(total);
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
         }
-
-        // Manual ghost-suggestion draw. If there's room for a 2nd+ line below the
-        // typed content, draw the "-> result" there instead of inline, so it
-        // doesn't overlap whatever's being typed. Falls back to inline at
-        // the end of the last line if there's no room.
-        if (!this.currentSuggestion.isEmpty()) {
-            String text = this.searchBox.getValue();
-            int usedLines = (int) text.chars().filter(c -> c == '\n').count() + 1;
-            int totalLines = Math.max(1, config.barLines);
-            int suggestionX;
-            int suggestionY;
-
-            if (usedLines < totalLines) {
-                // Room below the typed text -> next line.
-                suggestionX = this.searchBox.getX() + 2;
-                suggestionY = this.searchBox.getY() + (usedLines * ModConfig.LINE_HEIGHT);
-            } else {
-                // No room -> fall back to inline at the end of the last line.
-                int lastLineLength = text.isEmpty() ? 0 : text.substring(text.lastIndexOf('\n') + 1).length();
-                suggestionX = this.searchBox.getX() + 2 + this.font.width(text.substring(Math.max(0, text.length() - lastLineLength)));
-                suggestionY = this.searchBox.getY() + ((usedLines - 1) * ModConfig.LINE_HEIGHT) + 2;
-            }
-
-            graphics.fill(suggestionX, suggestionY, suggestionX + this.font.width(this.currentSuggestion) + 2, suggestionY + ModConfig.LINE_HEIGHT, 0x80000000);
-            graphics.centeredText(this.font, this.currentSuggestion,
-                suggestionX + this.font.width(this.currentSuggestion) / 2, suggestionY + 1, 0xFFAAAAAA);
-        }
-
-        // Draw a small grip square in the bottom-right corner so the resize
-        // handle is actually discoverable instead of a hidden click zone.
-        int hx = this.searchBox.getX() + this.searchBox.getWidth() - HANDLE_SIZE / 2;
-        int hy = this.searchBox.getY() + this.searchBox.getHeight() - HANDLE_SIZE / 2;
-        graphics.fill(hx, hy, hx + HANDLE_SIZE, hy + HANDLE_SIZE, 0xFFFFFFFF);
-        graphics.fill(hx + 1, hy + 1, hx + HANDLE_SIZE - 1, hy + HANDLE_SIZE - 1, 0xFF55FF55);
     }
 }

@@ -3,7 +3,8 @@
   "package": "com.invsearch.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "AbstractContainerScreenMixin"
+    "AbstractContainerScreenMixin",
+    "MultiLineEditBoxMixin"
   ],
   "injectors": {
     "defaultRequire": 1
