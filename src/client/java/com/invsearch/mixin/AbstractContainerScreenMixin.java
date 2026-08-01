@@ -36,6 +36,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     private EditBox searchBox;
     private static final NumberFormat FORMATTER = NumberFormat.getInstance(Locale.US);
+    private static final int HANDLE_SIZE = 6;
 
     private boolean isDraggingBox = false;
     private boolean isResizingBox = false;
@@ -94,17 +95,27 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void onMouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDouble, CallbackInfoReturnable<Boolean> cir) {
         if (event.hasAltDown() && this.searchBox != null) {
-            if (this.searchBox.isMouseOver(event.x(), event.y())) {
-                if (event.hasControlDown()) {
-                    this.isResizingBox = true;
-                } else {
-                    this.isDraggingBox = true;
-                    this.dragOffsetX = event.x() - this.searchBox.getX();
-                    this.dragOffsetY = event.y() - this.searchBox.getY();
-                }
+            if (isOverHandle(event.x(), event.y())) {
+                // Grabbed the little corner grip -> resize.
+                this.isResizingBox = true;
+                cir.setReturnValue(true);
+            } else if (this.searchBox.isMouseOver(event.x(), event.y())) {
+                // Grabbed the body of the box -> move.
+                this.isDraggingBox = true;
+                this.dragOffsetX = event.x() - this.searchBox.getX();
+                this.dragOffsetY = event.y() - this.searchBox.getY();
                 cir.setReturnValue(true);
             }
         }
+    }
+
+    /** Small SkyHanni-style resize grip at the bottom-right corner of the box. */
+    private boolean isOverHandle(double mouseX, double mouseY) {
+        int hx = this.searchBox.getX() + this.searchBox.getWidth() - HANDLE_SIZE / 2;
+        int hy = this.searchBox.getY() + this.searchBox.getHeight() - HANDLE_SIZE / 2;
+        // Slightly larger hit box than the drawn grip so it's easy to grab.
+        return mouseX >= hx - 2 && mouseX <= hx + HANDLE_SIZE + 2
+            && mouseY >= hy - 2 && mouseY <= hy + HANDLE_SIZE + 2;
     }
 
     @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
@@ -119,8 +130,18 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         } else if (this.isResizingBox && this.searchBox != null) {
             ModConfig config = ConfigManager.getConfig();
             int newWidth = (int) (event.x() - this.searchBox.getX());
+            int newHeight = (int) (event.y() - this.searchBox.getY());
             config.barWidth = Math.max(30, newWidth);
             this.searchBox.setWidth(config.barWidth);
+
+            // Vertical drag maps to line count. Each line is ~12px tall.
+            // NOTE: this only changes the stored config for now — the box is
+            // still a single-line EditBox, so it won't visually grow past one
+            // line until MultiLineEditBox is wired in. Width resize is fully
+            // functional today.
+            int lineHeight = 12;
+            config.barLines = Math.max(1, newHeight / lineHeight);
+
             cir.setReturnValue(true);
         }
     }
@@ -210,5 +231,12 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             String countText = "Total: " + FORMATTER.format(total);
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
         }
+
+        // Draw a small grip square in the bottom-right corner so the resize
+        // handle is actually discoverable instead of a hidden click zone.
+        int hx = this.searchBox.getX() + this.searchBox.getWidth() - HANDLE_SIZE / 2;
+        int hy = this.searchBox.getY() + this.searchBox.getHeight() - HANDLE_SIZE / 2;
+        graphics.fill(hx, hy, hx + HANDLE_SIZE, hy + HANDLE_SIZE, 0xFFFFFFFF);
+        graphics.fill(hx + 1, hy + 1, hx + HANDLE_SIZE - 1, hy + HANDLE_SIZE - 1, 0xFF55FF55);
     }
 }
