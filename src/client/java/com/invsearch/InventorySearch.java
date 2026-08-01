@@ -14,13 +14,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class InventorySearch {
+    // The query actually used for highlighting/counting — only updated when
+    // the user double-clicks the box to "activate" a search.
     public static String currentQuery = "";
+    // Whatever's currently typed in the box, saved regardless of whether it's
+    // been activated yet, so text survives closing/reopening any inventory.
+    public static String draftText = "";
 
     public static boolean matches(ItemStack stack, String query) {
         if (stack == null || stack.isEmpty()) return false;
         if (query == null || query.isBlank()) return true;
 
-        String[] rawTerms = query.split("&&");
+        // Newlines (from Shift+Enter in the multi-line box) act as an
+        // implicit "&&" — one search term per line.
+        String normalized = query.replace("\r\n", "\n").replace("\n", "&&");
+
+        String[] rawTerms = normalized.split("&&");
         List<String> terms = new ArrayList<>();
         for (String raw : rawTerms) {
             String trimmed = raw.trim().toLowerCase();

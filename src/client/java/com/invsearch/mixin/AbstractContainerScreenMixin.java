@@ -34,6 +34,12 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Shadow protected int imageHeight;
     @Shadow @Final protected T menu;
 
+    // NOTE: MultiLineEditBox is used unconditionally now (even for 1 line)
+    // instead of swapping between EditBox/MultiLineEditBox at runtime. That
+    // swap would drop focus/cursor position every time you crossed the
+    // 1<->2 line boundary while resizing, which felt broken. One widget type
+    // avoids that entirely at the cost of never getting single-line's native
+    // ghost-suggestion support — which is why we draw it manually below anyway.
     private MultiLineEditBox searchBox;
     private String currentSuggestion = "";
     private static final NumberFormat FORMATTER = NumberFormat.getInstance(Locale.US);
@@ -54,52 +60,74 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (!config.enabled) return;
 
         int boxWidth = config.barWidth > 0 ? config.barWidth : 120;
-        int boxHeight = config.barLines > 0 ? config.barLines * 12 : 12;
+        int lines = Math.max(1, config.barLines);
+        int boxHeight = lines * ModConfig.LINE_HEIGHT;
         int boxX = config.barX >= 0 ? config.barX : (this.width / 2 - boxWidth / 2);
         int boxY = config.barY >= 0 ? config.barY : (this.height - 22);
-        
+
         this.searchBox = MultiLineEditBox.builder()
-                .setX(boxX)
-                .setY(boxY)
-                .build(this.font, boxWidth, boxHeight, Component.literal("Search"));
-        
+            .setX(boxX)
+            .setY(boxY)
+            .build(this.font, boxWidth, boxHeight, Component.literal("Search"));
+
+        // Vanilla text fields default to a short max length (32 chars for
+        // EditBox); if MultiLineEditBox has the same constructor-time default,
+        // apply the same generous cap here for chained "&&"/multi-line queries
+        // and longer calculator expressions.
+        this.searchBox.setMaxLength(256);
+
         if (config.rememberLastQuery) {
-            this.searchBox.setValue(InventorySearch.currentQuery);
+            this.searchBox.setValue(InventorySearch.draftText);
         } else {
+            InventorySearch.draftText = "";
             InventorySearch.currentQuery = "";
         }
-        
+
         this.searchBox.setValueListener(text -> {
             if (config.rememberLastQuery) {
-                InventorySearch.currentQuery = text;
+                InventorySearch.draftText = text;
             }
             if (text.startsWith("=")) {
                 Optional<Double> res = CalculatorEngine.evaluate(text.substring(1));
-                if (res.isPresent()) {
-                    this.currentSuggestion = " \u2192 " + FORMATTER.format(res.get());
-                } else {
-                    this.currentSuggestion = " \u2192 Error";
-                }
+                this.currentSuggestion = res.isPresent()
+                    ? (" \u2192 " + FORMATTER.format(res.get()))
+                    : " \u2192 Error";
             } else {
                 this.currentSuggestion = "";
+                // Search is intentionally NOT auto-applied here anymore.
+                // The user double-clicks the box to activate/refresh the
+                // highlighted search instead of it live-searching every
+                // keystroke.
             }
         });
-        
-        if (this.searchBox.getValue().startsWith("=")) {
-            Optional<Double> res = CalculatorEngine.evaluate(this.searchBox.getValue().substring(1));
-            if (res.isPresent()) {
-                this.currentSuggestion = " \u2192 " + FORMATTER.format(res.get());
-            } else {
-                this.currentSuggestion = " \u2192 Error";
-            }
+
+        String initial = this.searchBox.getValue();
+        if (initial.startsWith("=")) {
+            Optional<Double> res = CalculatorEngine.evaluate(initial.substring(1));
+            this.currentSuggestion = res.isPresent()
+                ? (" \u2192 " + FORMATTER.format(res.get()))
+                : " \u2192 Error";
         }
-        
+
         this.addRenderableWidget(this.searchBox);
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void onMouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDouble, CallbackInfoReturnable<Boolean> cir) {
-        if (event.hasAltDown() && this.searchBox != null) {
+        if (this.searchBox == null) return;
+
+        // Double-click on the box (without ALT) activates the search using
+        // whatever text is currently typed, instead of highlighting live as
+        // you type. Doesn't cancel the event so the box's own double-click
+        // word-select behavior still happens too.
+        if (isDouble && !event.hasAltDown() && this.searchBox.isMouseOver(event.x(), event.y())) {
+            String text = this.searchBox.getValue();
+            if (!text.startsWith("=")) {
+                InventorySearch.currentQuery = text;
+            }
+        }
+
+        if (event.hasAltDown()) {
             if (isOverHandle(event.x(), event.y())) {
                 // Grabbed the little corner grip -> resize.
                 this.isResizingBox = true;
@@ -139,10 +167,13 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             config.barWidth = Math.max(30, newWidth);
             this.searchBox.setWidth(config.barWidth);
 
-            // Vertical drag maps to line count. Each line is ~12px tall.
-            int lineHeight = 12;
-            config.barLines = Math.max(1, newHeight / lineHeight);
-            this.searchBox.setHeight(config.barLines * lineHeight);
+            // Vertical drag maps to line count: floor(availableHeight / lineHeight),
+            // never round up — a partially-visible extra line is worse than
+            // clamping at the lower count. Capped so a wild drag can't produce
+            // an absurdly tall box.
+            int lines = Math.max(1, Math.min(5, newHeight / ModConfig.LINE_HEIGHT));
+            config.barLines = lines;
+            this.searchBox.setHeight(lines * ModConfig.LINE_HEIGHT);
 
             cir.setReturnValue(true);
         }
@@ -162,6 +193,14 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (this.searchBox != null && this.searchBox.isFocused()) {
             int keyCode = event.key();
             if (keyCode == 257 || keyCode == 335) {
+                if (event.hasShiftDown()) {
+                    // Shift+Enter: insert a literal newline instead of
+                    // submitting, so users can stack "&&" terms one per line.
+                    this.searchBox.insertText("\n");
+                    cir.setReturnValue(true);
+                    return;
+                }
+
                 String val = this.searchBox.getValue();
                 if (val.startsWith("=")) {
                     Optional<Double> result = CalculatorEngine.evaluate(val.substring(1));
@@ -169,7 +208,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                         this.searchBox.setValue(FORMATTER.format(result.get()));
                         this.currentSuggestion = "";
                         if (ConfigManager.getConfig().rememberLastQuery) {
-                            InventorySearch.currentQuery = this.searchBox.getValue();
+                            InventorySearch.draftText = this.searchBox.getValue();
                         }
                     }
                 }
@@ -190,8 +229,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     private void onExtractSlot(GuiGraphicsExtractor graphics, Slot slot, int x, int y, CallbackInfo ci) {
         ModConfig config = ConfigManager.getConfig();
         if (!config.enabled || this.searchBox == null) return;
-        
-        String query = config.rememberLastQuery ? InventorySearch.currentQuery : this.searchBox.getValue();
+
+        String query = InventorySearch.currentQuery;
         if (query.isBlank() || query.startsWith("=") || !slot.hasItem()) return;
 
         if (!config.includePlayerInventory && slot.container instanceof Inventory) {
@@ -220,7 +259,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         ModConfig config = ConfigManager.getConfig();
         if (!config.enabled || this.searchBox == null) return;
 
-        String query = config.rememberLastQuery ? InventorySearch.currentQuery : this.searchBox.getValue();
+        String query = InventorySearch.currentQuery;
         if (!query.startsWith("=")) {
             int total = this.menu.slots.stream()
                 .filter(slot -> config.includePlayerInventory || !(slot.container instanceof Inventory))
@@ -229,12 +268,37 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                 .filter(s -> query.isBlank() || InventorySearch.matches(s, query))
                 .mapToInt(ItemStack::getCount)
                 .sum();
-            
+
             String countText = "Total: " + FORMATTER.format(total);
             graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
-        } else if (!this.currentSuggestion.isEmpty()) {
-            // Draw calculator preview right below the search box
-            graphics.text(this.font, this.currentSuggestion, this.searchBox.getX(), this.searchBox.getY() + this.searchBox.getHeight() + 2, 0xAAAAAA, true);
+        }
+
+        // Manual ghost-suggestion draw, since MultiLineEditBox has no native
+        // suggestion support. If there's room for a 2nd+ line below the
+        // typed content, draw the "-> result" there instead of inline, so it
+        // doesn't overlap whatever's being typed. Falls back to inline at
+        // the end of the last line if there's no room.
+        if (!this.currentSuggestion.isEmpty()) {
+            String text = this.searchBox.getValue();
+            int usedLines = (int) text.chars().filter(c -> c == '\n').count() + 1;
+            int totalLines = Math.max(1, config.barLines);
+            int suggestionX;
+            int suggestionY;
+
+            if (usedLines < totalLines) {
+                // Room below the typed text -> next line.
+                suggestionX = this.searchBox.getX() + 2;
+                suggestionY = this.searchBox.getY() + (usedLines * ModConfig.LINE_HEIGHT);
+            } else {
+                // No room -> fall back to inline at the end of the last line.
+                int lastLineLength = text.isEmpty() ? 0 : text.substring(text.lastIndexOf('\n') + 1).length();
+                suggestionX = this.searchBox.getX() + 2 + this.font.width(text.substring(Math.max(0, text.length() - lastLineLength)));
+                suggestionY = this.searchBox.getY() + ((usedLines - 1) * ModConfig.LINE_HEIGHT) + 2;
+            }
+
+            graphics.fill(suggestionX, suggestionY, suggestionX + this.font.width(this.currentSuggestion) + 2, suggestionY + ModConfig.LINE_HEIGHT, 0x80000000);
+            graphics.centeredText(this.font, this.currentSuggestion,
+                suggestionX + this.font.width(this.currentSuggestion) / 2, suggestionY + 1, 0xFFAAAAAA);
         }
 
         // Draw a small grip square in the bottom-right corner so the resize

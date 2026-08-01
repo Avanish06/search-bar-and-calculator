@@ -1,6 +1,8 @@
 package com.invsearch.config;
 
 public class ModConfig {
+    public static final int LINE_HEIGHT = 12;
+
     public boolean enabled = true;
     public boolean rememberLastQuery = true;
     public boolean includePlayerInventory = true;

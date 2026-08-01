@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 
 public final class CalculatorEngine {
 
-    private static final Pattern TOKEN_PATTERN = Pattern.compile("\\s*([+\\-*/]|\\d+(?:\\.\\d+)?(?:[kKmM])?)\\s*");
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("\\s*([+\\-*/xX]|\\d+(?:\\.\\d+)?(?:[kKmM])?)\\s*");
 
     public static Optional<Double> evaluate(String expression) {
         if (expression == null || expression.isBlank()) return Optional.empty();
@@ -29,7 +29,7 @@ public final class CalculatorEngine {
             String token = matcher.group(1).toLowerCase();
 
             if (expectNumber) {
-                if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/")) {
+                if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/") || token.equals("x")) {
                     // Encountered operator when expecting number (e.g. trailing operator or double operator)
                     // Note: unary minus is not explicitly required by spec, but we can fail cleanly
                     return Optional.empty();
@@ -50,10 +50,11 @@ public final class CalculatorEngine {
                 }
                 expectNumber = false;
             } else {
-                if (token.length() != 1 || "+-*/".indexOf(token.charAt(0)) == -1) {
+                if (token.length() != 1 || "+-*/x".indexOf(token.charAt(0)) == -1) {
                     return Optional.empty();
                 }
                 char op = token.charAt(0);
+                if (op == 'x') op = '*';
                 operators.add(op);
                 expectNumber = true;
             }

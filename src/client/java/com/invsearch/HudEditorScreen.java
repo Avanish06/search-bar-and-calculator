@@ -11,14 +11,14 @@ import net.minecraft.network.chat.Component;
 /**
  * A dedicated, SkyHanni-style HUD editor for the search/calculator bar.
  * Opened via "/sac editbar" — shows a preview of the bar on a dimmed
- * background that you can drag to move and drag-by-corner to resize,
- * with no modifier keys needed since the whole screen IS the edit mode.
- * Press ESC to save and exit.
+ * background that you can drag to move and drag-by-corner to resize
+ * (both width AND height/line-count now), with no modifier keys needed
+ * since the whole screen IS the edit mode. Press ESC to save and exit.
  */
 public class HudEditorScreen extends Screen {
 
     private static final int HANDLE_SIZE = 6;
-    private static final int BOX_HEIGHT = 12;
+    private static final int MAX_LINES = 5;
 
     private boolean isDragging = false;
     private boolean isResizing = false;
@@ -38,7 +38,7 @@ public class HudEditorScreen extends Screen {
     protected void init() {
         ModConfig config = ConfigManager.getConfig();
         this.boxWidth = config.barWidth > 0 ? config.barWidth : 120;
-        this.boxHeight = config.barLines > 0 ? config.barLines * 12 : 12;
+        this.boxHeight = Math.max(1, config.barLines) * ModConfig.LINE_HEIGHT;
         this.boxX = config.barX >= 0 ? config.barX : (this.width / 2 - this.boxWidth / 2);
         this.boxY = config.barY >= 0 ? config.barY : (this.height - 22);
     }
@@ -48,7 +48,7 @@ public class HudEditorScreen extends Screen {
         // Dim the whole screen so the preview box stands out clearly.
         graphics.fill(0, 0, this.width, this.height, 0xC0101010);
 
-        // Box preview + border.
+        // Box preview + border — all sized off the current (resizable) boxHeight.
         graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF2B2B2B);
         graphics.fill(boxX, boxY, boxX + boxWidth, boxY + 1, 0xFFFFFFFF);
         graphics.fill(boxX, boxY + boxHeight - 1, boxX + boxWidth, boxY + boxHeight, 0xFFFFFFFF);
@@ -56,7 +56,11 @@ public class HudEditorScreen extends Screen {
         graphics.fill(boxX + boxWidth - 1, boxY, boxX + boxWidth, boxY + boxHeight, 0xFFFFFFFF);
         graphics.centeredText(this.font, "Search & Calc", boxX + boxWidth / 2, boxY + boxHeight / 2 - 4, 0xFFFFFF);
 
-        // Resize grip, bottom-right corner.
+        int lines = boxHeight / ModConfig.LINE_HEIGHT;
+        graphics.centeredText(this.font, lines + " line" + (lines == 1 ? "" : "s"),
+            boxX + boxWidth / 2, boxY + boxHeight + 4, 0xAAAAAA);
+
+        // Resize grip, bottom-right corner — tracks boxHeight, not a fixed constant.
         int hx = boxX + boxWidth - HANDLE_SIZE / 2;
         int hy = boxY + boxHeight - HANDLE_SIZE / 2;
         graphics.fill(hx, hy, hx + HANDLE_SIZE, hy + HANDLE_SIZE, 0xFFFFFFFF);
@@ -103,10 +107,11 @@ public class HudEditorScreen extends Screen {
             return true;
         } else if (isResizing) {
             boxWidth = Math.max(30, (int) (event.x() - boxX));
-            boxHeight = Math.max(12, (int) (event.y() - boxY));
-            // Snap height to increments of 12px lines
-            int lines = Math.max(1, boxHeight / 12);
-            boxHeight = lines * 12;
+
+            int newHeight = (int) (event.y() - boxY);
+            int lines = Math.max(1, Math.min(MAX_LINES, newHeight / ModConfig.LINE_HEIGHT));
+            boxHeight = lines * ModConfig.LINE_HEIGHT;
+
             return true;
         }
         return super.mouseDragged(event, dragX, dragY);
@@ -137,7 +142,7 @@ public class HudEditorScreen extends Screen {
         config.barX = boxX;
         config.barY = boxY;
         config.barWidth = boxWidth;
-        config.barLines = Math.max(1, boxHeight / 12);
+        config.barLines = Math.max(1, boxHeight / ModConfig.LINE_HEIGHT);
         ConfigManager.saveConfig();
     }
 }
