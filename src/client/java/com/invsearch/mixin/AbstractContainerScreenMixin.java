@@ -90,8 +90,9 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
-    private void onKeyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+    private void onKeyPressed(net.minecraft.client.input.KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
         if (this.searchBox != null && this.searchBox.isFocused()) {
+            int keyCode = event.key();
             if (keyCode == 257 || keyCode == 335) { // ENTER or KP_ENTER
                 String val = this.searchBox.getValue();
                 if (val.startsWith("=")) {
