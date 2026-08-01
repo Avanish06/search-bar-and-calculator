@@ -4,7 +4,7 @@ import com.invsearch.config.ConfigManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.minecraft.network.chat.Component;
 
@@ -15,8 +15,8 @@ public class InvSearchMod implements ClientModInitializer {
         ConfigManager.loadConfig();
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(ClientCommandManager.literal("sac")
-                .then(ClientCommandManager.literal("togglevanilla")
+            dispatcher.register(ClientCommands.literal("sac")
+                .then(ClientCommands.literal("togglevanilla")
                     .executes(context -> {
                         boolean newVal = !ConfigManager.getConfig().matchVanillaIds;
                         ConfigManager.getConfig().matchVanillaIds = newVal;

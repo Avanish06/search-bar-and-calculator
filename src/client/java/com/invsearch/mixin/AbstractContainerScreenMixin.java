@@ -93,9 +93,9 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void onMouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDouble, CallbackInfoReturnable<Boolean> cir) {
-        if (Screen.hasAltDown() && this.searchBox != null) {
+        if (event.hasAltDown() && this.searchBox != null) {
             if (this.searchBox.isMouseOver(event.x(), event.y())) {
-                if (Screen.hasControlDown()) {
+                if (event.hasControlDown()) {
                     this.isResizingBox = true;
                 } else {
                     this.isDraggingBox = true;
