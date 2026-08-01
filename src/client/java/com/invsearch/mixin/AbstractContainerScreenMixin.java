@@ -201,17 +201,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                     return;
                 }
 
-                String val = this.searchBox.getValue();
-                if (val.startsWith("=")) {
-                    Optional<Double> result = CalculatorEngine.evaluate(val.substring(1));
-                    if (result.isPresent()) {
-                        this.searchBox.setValue(FORMATTER.format(result.get()));
-                        this.currentSuggestion = "";
-                        if (ConfigManager.getConfig().rememberLastQuery) {
-                            InventorySearch.draftText = this.searchBox.getValue();
-                        }
-                    }
-                }
+                // Enter does not evaluate the math expression anymore.
+                // The user prefers reading the greyed out suggestion instead of replacing the text box content.
                 cir.setReturnValue(true);
                 return;
             } else if (keyCode == 256) {
