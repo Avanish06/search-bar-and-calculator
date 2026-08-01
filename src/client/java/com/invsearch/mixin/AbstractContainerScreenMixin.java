@@ -4,7 +4,7 @@ import com.invsearch.CalculatorEngine;
 import com.invsearch.InventorySearch;
 import com.invsearch.config.ConfigManager;
 import com.invsearch.config.ModConfig;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -112,8 +112,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         }
     }
 
-    @Inject(method = "renderSlot", at = @At("TAIL"))
-    private void onRenderSlot(GuiGraphics graphics, Slot slot, CallbackInfo ci) {
+    @Inject(method = "extractSlot", at = @At("TAIL"))
+    private void onExtractSlot(GuiGraphicsExtractor graphics, Slot slot, int x, int y, CallbackInfo ci) {
         ModConfig config = ConfigManager.getConfig();
         if (!config.enabled || this.searchBox == null) return;
         
@@ -133,8 +133,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         }
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void onRender(GuiGraphics graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void onExtractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         ModConfig config = ConfigManager.getConfig();
         if (!config.enabled || this.searchBox == null) return;
 
@@ -149,7 +149,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                 .sum();
             
             String countText = "Total: " + FORMATTER.format(total);
-            graphics.drawString(this.font, countText, this.width / 2 - this.font.width(countText) / 2, this.height - 34, 0xFFFFFF, true);
+            graphics.centeredText(this.font, countText, this.width / 2, this.height - 34, 0xFFFFFF);
         }
     }
 }
