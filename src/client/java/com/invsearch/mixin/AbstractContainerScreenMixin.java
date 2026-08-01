@@ -74,7 +74,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         // EditBox); if MultiLineEditBox has the same constructor-time default,
         // apply the same generous cap here for chained "&&"/multi-line queries
         // and longer calculator expressions.
-        this.searchBox.setMaxLength(256);
+        this.searchBox.setCharacterLimit(256);
 
         if (config.rememberLastQuery) {
             this.searchBox.setValue(InventorySearch.draftText);
@@ -196,7 +196,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                 if (event.hasShiftDown()) {
                     // Shift+Enter: insert a literal newline instead of
                     // submitting, so users can stack "&&" terms one per line.
-                    this.searchBox.insertText("\n");
+                    this.searchBox.setValue(this.searchBox.getValue() + "\n");
                     cir.setReturnValue(true);
                     return;
                 }
