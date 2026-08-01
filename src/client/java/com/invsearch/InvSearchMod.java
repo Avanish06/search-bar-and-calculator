@@ -6,14 +6,24 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
 @Environment(EnvType.CLIENT)
 public class InvSearchMod implements ClientModInitializer {
+    private static boolean openHudEditor = false;
+
     @Override
     public void onInitializeClient() {
         ConfigManager.loadConfig();
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (openHudEditor) {
+                openHudEditor = false;
+                client.setScreen(new HudEditorScreen());
+            }
+        });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommands.literal("sac")
@@ -28,7 +38,7 @@ public class InvSearchMod implements ClientModInitializer {
                 )
                 .then(ClientCommands.literal("editbar")
                     .executes(context -> {
-                        Minecraft.getInstance().setScreen(new HudEditorScreen());
+                        openHudEditor = true;
                         return 1;
                     })
                 )
