@@ -37,6 +37,11 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     private EditBox searchBox;
     private static final NumberFormat FORMATTER = NumberFormat.getInstance(Locale.US);
 
+    private boolean isDraggingBox = false;
+    private boolean isResizingBox = false;
+    private double dragOffsetX = 0;
+    private double dragOffsetY = 0;
+
     protected AbstractContainerScreenMixin(Component title) {
         super(title);
     }
@@ -46,10 +51,9 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         ModConfig config = ConfigManager.getConfig();
         if (!config.enabled) return;
 
-        // Docked to the bottom center of the screen
-        int boxWidth = 120;
-        int boxX = this.width / 2 - boxWidth / 2;
-        int boxY = this.height - 22;
+        int boxWidth = config.barWidth > 0 ? config.barWidth : 120;
+        int boxX = config.barX >= 0 ? config.barX : (this.width / 2 - boxWidth / 2);
+        int boxY = config.barY >= 0 ? config.barY : (this.height - 22);
         
         this.searchBox = new EditBox(this.font, boxX, boxY, boxWidth, 12, Component.literal("Search"));
         
@@ -63,7 +67,6 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             if (config.rememberLastQuery) {
                 InventorySearch.currentQuery = text;
             }
-            // Update calculator suggestion
             if (text.startsWith("=")) {
                 Optional<Double> res = CalculatorEngine.evaluate(text.substring(1));
                 if (res.isPresent()) {
@@ -76,7 +79,6 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             }
         });
         
-        // Initial trigger for suggestion if pre-populated
         if (this.searchBox.getValue().startsWith("=")) {
             Optional<Double> res = CalculatorEngine.evaluate(this.searchBox.getValue().substring(1));
             if (res.isPresent()) {
@@ -89,11 +91,54 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         this.addRenderableWidget(this.searchBox);
     }
 
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
+    private void onMouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean isDouble, CallbackInfoReturnable<Boolean> cir) {
+        if (Screen.hasAltDown() && this.searchBox != null) {
+            if (this.searchBox.isMouseOver(event.x(), event.y())) {
+                if (Screen.hasControlDown()) {
+                    this.isResizingBox = true;
+                } else {
+                    this.isDraggingBox = true;
+                    this.dragOffsetX = event.x() - this.searchBox.getX();
+                    this.dragOffsetY = event.y() - this.searchBox.getY();
+                }
+                cir.setReturnValue(true);
+            }
+        }
+    }
+
+    @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
+    private void onMouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
+        if (this.isDraggingBox && this.searchBox != null) {
+            ModConfig config = ConfigManager.getConfig();
+            config.barX = (int) (event.x() - this.dragOffsetX);
+            config.barY = (int) (event.y() - this.dragOffsetY);
+            this.searchBox.setX(config.barX);
+            this.searchBox.setY(config.barY);
+            cir.setReturnValue(true);
+        } else if (this.isResizingBox && this.searchBox != null) {
+            ModConfig config = ConfigManager.getConfig();
+            int newWidth = (int) (event.x() - this.searchBox.getX());
+            config.barWidth = Math.max(30, newWidth);
+            this.searchBox.setWidth(config.barWidth);
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "mouseReleased", at = @At("HEAD"))
+    private void onMouseReleased(net.minecraft.client.input.MouseButtonEvent event, CallbackInfoReturnable<Boolean> cir) {
+        if (this.isDraggingBox || this.isResizingBox) {
+            this.isDraggingBox = false;
+            this.isResizingBox = false;
+            ConfigManager.saveConfig();
+        }
+    }
+
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void onKeyPressed(net.minecraft.client.input.KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
         if (this.searchBox != null && this.searchBox.isFocused()) {
             int keyCode = event.key();
-            if (keyCode == 257 || keyCode == 335) { // ENTER or KP_ENTER
+            if (keyCode == 257 || keyCode == 335) {
                 String val = this.searchBox.getValue();
                 if (val.startsWith("=")) {
                     Optional<Double> result = CalculatorEngine.evaluate(val.substring(1));
@@ -107,18 +152,12 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                 }
                 cir.setReturnValue(true);
                 return;
-            } else if (keyCode == 256) { // ESCAPE
+            } else if (keyCode == 256) {
                 this.searchBox.setFocused(false);
                 cir.setReturnValue(true);
                 return;
             }
 
-            // Any other key (letters, backspace, arrows, ctrl+c/v, etc.) while the box is
-            // focused: let the EditBox itself handle it, then ALWAYS consume the event here.
-            // This is required because AbstractContainerScreen's own keyPressed checks the
-            // vanilla "open/close inventory" keybind (default E) before it ever looks at
-            // whether a widget has focus - without this, typing "e" closes the screen instead
-            // of reaching the text field.
             this.searchBox.keyPressed(event);
             cir.setReturnValue(true);
         }
@@ -130,28 +169,23 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (!config.enabled || this.searchBox == null) return;
         
         String query = config.rememberLastQuery ? InventorySearch.currentQuery : this.searchBox.getValue();
-        if (query.isBlank() || query.startsWith("=") || !slot.hasItem()) return; // No dimming in calc mode
+        if (query.isBlank() || query.startsWith("=") || !slot.hasItem()) return;
 
-        // Check if we should ignore player inventory
         if (!config.includePlayerInventory && slot.container instanceof Inventory) {
             return;
         }
 
         if (InventorySearch.matches(slot.getItem(), query)) {
-            // Draw a 1px green border around the matching slot's icon area.
-            // Four thin fills (top/bottom/left/right) rather than a single hollow-rect
-            // call, since GuiGraphicsExtractor only exposes solid fill() here.
             int color = config.highlightColor;
             int x0 = slot.x - 1;
             int y0 = slot.y - 1;
             int x1 = slot.x + 17;
             int y1 = slot.y + 17;
-            graphics.fill(x0, y0, x1, y0 + 1, color);       // top
-            graphics.fill(x0, y1 - 1, x1, y1, color);        // bottom
-            graphics.fill(x0, y0, x0 + 1, y1, color);        // left
-            graphics.fill(x1 - 1, y0, x1, y1, color);        // right
+            graphics.fill(x0, y0, x1, y0 + 1, color);
+            graphics.fill(x0, y1 - 1, x1, y1, color);
+            graphics.fill(x0, y0, x0 + 1, y1, color);
+            graphics.fill(x1 - 1, y0, x1, y1, color);
         } else {
-            // Draw a dark overlay over the slot using fill
             int opacity = Math.max(0, Math.min(255, config.dimOpacity));
             int color = (opacity << 24) | 0x000000;
             graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, color);

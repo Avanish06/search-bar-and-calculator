@@ -37,8 +37,10 @@ public final class InventorySearch {
         }
 
         // 2. Registry ID (includes namespace/modid e.g. "minecraft:diamond_sword")
-        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        searchableText.add(id.toLowerCase());
+        if (com.invsearch.config.ConfigManager.getConfig().matchVanillaIds) {
+            String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            searchableText.add(id.toLowerCase());
+        }
 
         // 3. Lore lines
         ItemLore lore = stack.get(DataComponents.LORE);
